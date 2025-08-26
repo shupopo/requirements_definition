@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTMLペイントアプリ</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            min-width: 900px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            margin: 0;
+            color: #333;
+            font-size: 28px;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .control-group label {
+            font-size: 12px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .tool-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .tool-btn {
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            background-color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .tool-btn:hover {
+            background-color: #f0f0f0;
+        }
+
+        .tool-btn.active {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+        .size-slider {
+            width: 120px;
+        }
+
+        .size-value {
+            font-weight: bold;
+            color: #333;
+            min-width: 30px;
+            text-align: center;
+        }
+
+        .color-picker {
+            width: 50px;
+            height: 40px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .clear-btn {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .clear-btn:hover {
+            background-color: #c82333;
+        }
+
+        .download-btn {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .download-btn:hover {
+            background-color: #218838;
+        }
+
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        #paintCanvas {
+            border: 2px solid #333;
+            border-radius: 5px;
+            cursor: crosshair;
+            background-color: white;
+        }
+
+        .info {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+
+        @media (max-width: 900px) {
+            body {
+                min-width: auto;
+                padding: 10px;
+            }
+            
+            .controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .tool-buttons {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>HTMLペイントアプリ</h1>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>ツール</label>
+                <div class="tool-buttons">
+                    <button id="penTool" class="tool-btn active">ペン</button>
+                    <button id="eraserTool" class="tool-btn">消しゴム</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>ブラシサイズ</label>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="range" id="brushSize" class="size-slider" min="1" max="50" value="5">
+                    <span id="sizeValue" class="size-value">5</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>色</label>
+                <input type="color" id="colorPicker" class="color-picker" value="#000000">
+            </div>
+
+            <div class="control-group">
+                <label>アクション</label>
+                <div class="action-buttons">
+                    <button id="clearCanvas" class="action-btn clear-btn">全消去</button>
+                    <button id="downloadImage" class="action-btn download-btn">ダウンロード</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="paintCanvas" width="800" height="800"></canvas>
+        </div>
+
+        <div class="info">
+            <p>マウスまたはタッチでキャンバス上に絵を描くことができます</p>
+        </div>
+    </div>
+
+    <script>
+        class PaintApp {
+            constructor() {
+                this.canvas = document.getElementById('paintCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.isDrawing = false;
+                this.currentTool = 'pen';
+                this.brushSize = 5;
+                this.color = '#000000';
+                
+                this.initializeCanvas();
+                this.bindEvents();
+            }
+
+            initializeCanvas() {
+                this.ctx.lineCap = 'round';
+                this.ctx.lineJoin = 'round';
+                this.ctx.fillStyle = 'white';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            }
+
+            bindEvents() {
+                // Tool selection
+                document.getElementById('penTool').addEventListener('click', () => this.selectTool('pen'));
+                document.getElementById('eraserTool').addEventListener('click', () => this.selectTool('eraser'));
+
+                // Brush size
+                const brushSizeSlider = document.getElementById('brushSize');
+                const sizeValue = document.getElementById('sizeValue');
+                brushSizeSlider.addEventListener('input', (e) => {
+                    this.brushSize = e.target.value;
+                    sizeValue.textContent = e.target.value;
+                });
+
+                // Color picker
+                document.getElementById('colorPicker').addEventListener('change', (e) => {
+                    this.color = e.target.value;
+                });
+
+                // Action buttons
+                document.getElementById('clearCanvas').addEventListener('click', () => this.clearCanvas());
+                document.getElementById('downloadImage').addEventListener('click', () => this.downloadImage());
+
+                // Canvas events - Mouse
+                this.canvas.addEventListener('mousedown', (e) => this.startDrawing(e));
+                this.canvas.addEventListener('mousemove', (e) => this.draw(e));
+                this.canvas.addEventListener('mouseup', () => this.stopDrawing());
+                this.canvas.addEventListener('mouseout', () => this.stopDrawing());
+
+                // Canvas events - Touch
+                this.canvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    const mouseEvent = new MouseEvent('mousedown', {
+                        clientX: touch.clientX,
+                        clientY: touch.clientY
+                    });
+                    this.canvas.dispatchEvent(mouseEvent);
+                });
+
+                this.canvas.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    const mouseEvent = new MouseEvent('mousemove', {
+                        clientX: touch.clientX,
+                        clientY: touch.clientY
+                    });
+                    this.canvas.dispatchEvent(mouseEvent);
+                });
+
+                this.canvas.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    const mouseEvent = new MouseEvent('mouseup', {});
+                    this.canvas.dispatchEvent(mouseEvent);
+                });
+            }
+
+            selectTool(tool) {
+                this.currentTool = tool;
+                
+                // Update button states
+                document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+                document.getElementById(tool + 'Tool').classList.add('active');
+                
+                // Update cursor
+                if (tool === 'pen') {
+                    this.canvas.style.cursor = 'crosshair';
+                } else if (tool === 'eraser') {
+                    this.canvas.style.cursor = 'grab';
+                }
+            }
+
+            getMousePos(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                return {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                };
+            }
+
+            startDrawing(e) {
+                this.isDrawing = true;
+                const pos = this.getMousePos(e);
+                this.ctx.beginPath();
+                this.ctx.moveTo(pos.x, pos.y);
+            }
+
+            draw(e) {
+                if (!this.isDrawing) return;
+
+                const pos = this.getMousePos(e);
+                
+                this.ctx.lineWidth = this.brushSize;
+                
+                if (this.currentTool === 'pen') {
+                    this.ctx.globalCompositeOperation = 'source-over';
+                    this.ctx.strokeStyle = this.color;
+                } else if (this.currentTool === 'eraser') {
+                    this.ctx.globalCompositeOperation = 'destination-out';
+                }
+                
+                this.ctx.lineTo(pos.x, pos.y);
+                this.ctx.stroke();
+            }
+
+            stopDrawing() {
+                this.isDrawing = false;
+            }
+
+            clearCanvas() {
+                if (confirm('本当に全て消去しますか？')) {
+                    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                    this.ctx.fillStyle = 'white';
+                    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                }
+            }
+
+            downloadImage() {
+                const now = new Date();
+                const fileName = `paint_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}.png`;
+                
+                const link = document.createElement('a');
+                link.download = fileName;
+                link.href = this.canvas.toDataURL();
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+
+        // Initialize the paint app when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new PaintApp();
+        });
+    </script>
+</body>
+</html>
